@@ -219,10 +219,12 @@ static void fpc1020_report_work_func(struct work_struct *work)
 	__pm_wakeup_event(&fpc1020->fp_wl, 1000);
 
 	/* Report button input to trigger CPU boost */
-	input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, fpc1020->report_key, 1);
+	input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 1);
+	input_report_key(fpc1020->input_dev, fpc1020->report_key, 1);
 	input_sync(fpc1020->input_dev);
 	pr_info("fpc1020 IRQ interrupt\n");
-	input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, fpc1020->report_key, 0);
+	input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 0);
+	input_report_key(fpc1020->input_dev, fpc1020->report_key, 0);
 	input_sync(fpc1020->input_dev);
 	}
 }
