@@ -37,6 +37,9 @@
 #define FPC1020_RESET_HIGH2_US 1250
 #define FPC_TTW_HOLD_TIME 1000
 
+/* Unused key value to avoid interfering with active keys */
+#define KEY_FINGERPRINT 0x2ee
+
 struct fpc1020_data {
 	struct device   *dev;
 	struct pinctrl  *pin;
@@ -216,10 +219,10 @@ static void fpc1020_report_work_func(struct work_struct *work)
 	__pm_wakeup_event(&fpc1020->fp_wl, 1000);
 
 	/* Report button input to trigger CPU boost */
-	input_report_key(fpc1020->input_dev, fpc1020->report_key, 1);
+	input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, fpc1020->report_key, 1);
 	input_sync(fpc1020->input_dev);
 	pr_info("fpc1020 IRQ interrupt\n");
-	input_report_key(fpc1020->input_dev, fpc1020->report_key, 0);
+	input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, fpc1020->report_key, 0);
 	input_sync(fpc1020->input_dev);
 	}
 }
@@ -344,6 +347,7 @@ static int fpc1020_alloc_input_dev(struct fpc1020_data *fpc1020)
 	set_bit(KEY_LEFT, fpc1020->input_dev->keybit);
 	set_bit(KEY_RIGHT, fpc1020->input_dev->keybit);
 	set_bit(KEY_NAVI_LONG, fpc1020->input_dev->keybit);
+	set_bit(KEY_FINGERPRINT, fpc1020->input_dev->keybit);
 	input_set_capability(fpc1020->input_dev, EV_KEY, KEY_NAVI_LEFT);
 	input_set_capability(fpc1020->input_dev, EV_KEY, KEY_NAVI_RIGHT);
 	input_set_capability(fpc1020->input_dev, EV_KEY, KEY_BACK);
