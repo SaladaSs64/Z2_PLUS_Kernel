@@ -29,6 +29,7 @@
 #include <linux/io.h>
 #include <linux/of_gpio.h>
 #include <linux/input.h>
+#include <linux/state_notifier.h>
 
 #define FPC1020_TOUCH_DEV_NAME  "fpc1020tp"
 
@@ -219,12 +220,22 @@ static void fpc1020_report_work_func(struct work_struct *work)
 	__pm_wakeup_event(&fpc1020->fp_wl, 1000);
 
 	/* Report button input to trigger CPU boost */
-	input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 1);
-	input_report_key(fpc1020->input_dev, fpc1020->report_key, 1);
+	if (state_suspended) {
+		input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 1);
+		pr_info("fpc1020 BOOST called\n");
+	} else {
+		input_report_key(fpc1020->input_dev, fpc1020->report_key, 1);
+		pr_info("fpc1020 regular interrupt start\n");
+	}
 	input_sync(fpc1020->input_dev);
 	pr_info("fpc1020 IRQ interrupt\n");
-	input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 0);
-	input_report_key(fpc1020->input_dev, fpc1020->report_key, 0);
+	if (state_suspended) {
+		input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 0);
+		pr_info("fpc1020 BOOST ended\n");
+	} else {
+		input_report_key(fpc1020->input_dev, fpc1020->report_key, 0);
+		pr_info("fpc1020 regular interrupt end\n");
+	}
 	input_sync(fpc1020->input_dev);
 	}
 }
