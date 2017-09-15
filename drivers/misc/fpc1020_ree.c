@@ -24,7 +24,7 @@
 #include <linux/mutex.h>
 #include <linux/types.h>
 #include <linux/platform_device.h>
-#include <linux/wakelock.h>
+#include <linux/pm_wakeup.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/io.h>
 #include <linux/of_gpio.h>
@@ -51,8 +51,9 @@ struct fpc1020_data {
 	struct work_struct input_report_work;
 	struct workqueue_struct *fpc1020_wq;
 	u8  report_key;
-	struct wake_lock wake_lock;
-	struct wake_lock fp_wl;
+	struct wakeup_source fp_wl;
+	struct wakeup_source fp_wl_hal;
+	
 	int wakeup_status;
 	int screen_on;
 };
@@ -97,34 +98,6 @@ static ssize_t irq_set(struct device* device,
 }
 
 static DEVICE_ATTR(irq, S_IRUSR | S_IWUSR, irq_get, irq_set);
-
-static ssize_t fp_wl_get(struct device* device,
-		struct device_attribute* attribute,
-		char * buffer)
-{
-	//struct fpc1020_data* fpc1020 = dev_get_drvdata(device);
-	return 0;
-}
-
-static ssize_t fp_wl_set(struct device* device,
-		struct device_attribute* attribute,
-		const char* buffer, size_t count)
-{
-	int retval = 0;
-	u64 val;
-	struct fpc1020_data* fpc1020 = dev_get_drvdata(device);
-	retval = kstrtou64(buffer, 0, &val);
-	if (val == 1 && !wake_lock_active(&fpc1020->fp_wl))
-		wake_lock(&fpc1020->fp_wl);
-	else if (val == 0 && wake_lock_active(&fpc1020->fp_wl))
-		wake_unlock(&fpc1020->fp_wl);
-	else {
-		pr_err("HAL wakelock request fail, val = %d\n", (int)val);
-	}
-	return strnlen(buffer, count);
-}
-
-static DEVICE_ATTR(wl, S_IRUSR | S_IWUSR, fp_wl_get, fp_wl_set);
 
 static ssize_t get_wakeup_status(struct device* device,
 		struct device_attribute* attribute,
@@ -225,7 +198,6 @@ static struct attribute *attributes[] = {
 	&dev_attr_irq.attr,
 	&dev_attr_wakeup.attr,
 	&dev_attr_key.attr,
-	&dev_attr_wl.attr,
 	&dev_attr_screen.attr,
 	NULL
 };
@@ -240,12 +212,15 @@ static void fpc1020_report_work_func(struct work_struct *work)
 	fpc1020 = container_of(work, struct fpc1020_data, input_report_work);
 	if (fpc1020->screen_on == 1) {
 		pr_info("Report key value = %d\n", (int)fpc1020->report_key);
-		input_report_key(fpc1020->input_dev, fpc1020->report_key, 1);
-		input_sync(fpc1020->input_dev);
-		mdelay(30);
-		input_report_key(fpc1020->input_dev, fpc1020->report_key, 0);
-		input_sync(fpc1020->input_dev);
-		fpc1020->report_key = 0;
+
+	__pm_wakeup_event(&fpc1020->fp_wl, 1000);
+
+	/* Report button input to trigger CPU boost */
+	input_report_key(fpc1020->input_dev, fpc1020->report_key, 1);
+	input_sync(fpc1020->input_dev);
+	pr_info("fpc1020 IRQ interrupt\n");
+	input_report_key(fpc1020->input_dev, fpc1020->report_key, 0);
+	input_sync(fpc1020->input_dev);
 	}
 }
 
@@ -296,23 +271,10 @@ err:
 static irqreturn_t fpc1020_irq_handler(int irq, void *_fpc1020)
 {
 	struct fpc1020_data *fpc1020 = _fpc1020;
-	/*
 	pr_info("fpc1020 IRQ interrupt\n");
 	smp_rmb();
-	wake_lock_timeout(&fpc1020->wake_lock, 3*HZ);
-	*/
+	__pm_wakeup_event(&fpc1020->fp_wl, 1000);
 	sysfs_notify(&fpc1020->dev->kobj, NULL, dev_attr_irq.attr.name);
-		if (fpc1020->screen_on)
-		return IRQ_HANDLED;
-
-	wake_lock_timeout(&fpc1020->fp_wl, msecs_to_jiffies(FPC_TTW_HOLD_TIME));
-
-	/* Report button input to trigger CPU boost */
-	input_report_key(fpc1020->input_dev, fpc1020->report_key, 1);
-	input_sync(fpc1020->input_dev);
-	pr_info("fpc1020 IRQ interrupt\n");
-	input_report_key(fpc1020->input_dev, fpc1020->report_key, 0);
-	input_sync(fpc1020->input_dev);
 	
 	return IRQ_HANDLED;
 }
@@ -469,8 +431,8 @@ static int fpc1020_probe(struct platform_device *pdev)
 		goto error_destroy_workqueue;
 	}
 
-	wake_lock_init(&fpc1020->wake_lock, WAKE_LOCK_SUSPEND, "fpc_wakelock");
-	wake_lock_init(&fpc1020->fp_wl, WAKE_LOCK_SUSPEND, "fp_hal_wl");
+	wakeup_source_init(&fpc1020->fp_wl, "fpc_wakelock");
+	wakeup_source_init(&fpc1020->fp_wl_hal, "fp_hal_wl");
 
 	retval = fpc1020_initial_irq(fpc1020);
 	if (retval != 0) {
@@ -519,7 +481,7 @@ static void set_fingerprintd_nice(int nice)
 static int fpc1020_resume(struct platform_device *pdev)
 {
 	int retval = 0;
-	set_fingerprintd_nice(-20);
+	set_fingerprintd_nice(-1);
 	return retval;
 }
 
