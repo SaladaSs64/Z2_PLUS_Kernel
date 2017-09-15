@@ -296,10 +296,24 @@ err:
 static irqreturn_t fpc1020_irq_handler(int irq, void *_fpc1020)
 {
 	struct fpc1020_data *fpc1020 = _fpc1020;
+	/*
 	pr_info("fpc1020 IRQ interrupt\n");
 	smp_rmb();
 	wake_lock_timeout(&fpc1020->wake_lock, 3*HZ);
+	*/
 	sysfs_notify(&fpc1020->dev->kobj, NULL, dev_attr_irq.attr.name);
+		if (fpc1020->screen_on)
+		return IRQ_HANDLED;
+
+	wake_lock_timeout(&fpc1020->fp_wl, msecs_to_jiffies(FPC_TTW_HOLD_TIME));
+
+	/* Report button input to trigger CPU boost */
+	input_report_key(fpc1020->input_dev, fpc1020->report_key, 1);
+	input_sync(fpc1020->input_dev);
+	pr_info("fpc1020 IRQ interrupt\n");
+	input_report_key(fpc1020->input_dev, fpc1020->report_key, 0);
+	input_sync(fpc1020->input_dev);
+	
 	return IRQ_HANDLED;
 }
 
