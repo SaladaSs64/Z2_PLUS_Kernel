@@ -142,8 +142,8 @@ static ssize_t get_key(struct device* device, struct device_attribute* attribute
 	return scnprintf(buffer, PAGE_SIZE, "%i\n", fpc1020->report_key);
 }
 
-static int longtap = 1;
-module_param_named(longtap, longtap, int, 0664);
+static bool longtap = 1;
+module_param_named(longtap, longtap, bool, 0664);
 
 static ssize_t set_key(struct device* device,
 		struct device_attribute* attribute,
@@ -214,30 +214,12 @@ static void fpc1020_report_work_func(struct work_struct *work)
 {
 	struct fpc1020_data *fpc1020 = NULL;
 	fpc1020 = container_of(work, struct fpc1020_data, input_report_work);
-	if (fpc1020->screen_on == 1) {
-		pr_info("Report key value = %d\n", (int)fpc1020->report_key);
-
-	__pm_wakeup_event(&fpc1020->fp_wl, 1000);
-
-	/* Report button input to trigger CPU boost */
-	if (state_suspended) {
-		input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 1);
-		pr_info("fpc1020 BOOST called\n");
-	} else {
-		input_report_key(fpc1020->input_dev, fpc1020->report_key, 1);
-		pr_info("fpc1020 regular interrupt start\n");
-	}
+	pr_info("Back function of button initiated");
+	input_report_key(fpc1020->input_dev, fpc1020->report_key, 1);
+	udelay(FPC1020_RESET_LOW_US);
+	input_report_key(fpc1020->input_dev, fpc1020->report_key, 0);
+	pr_info("Back function of button completed");
 	input_sync(fpc1020->input_dev);
-	pr_info("fpc1020 IRQ interrupt\n");
-	if (state_suspended) {
-		input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 0);
-		pr_info("fpc1020 BOOST ended\n");
-	} else {
-		input_report_key(fpc1020->input_dev, fpc1020->report_key, 0);
-		pr_info("fpc1020 regular interrupt end\n");
-	}
-	input_sync(fpc1020->input_dev);
-	}
 }
 
 static void fpc1020_hw_reset(struct fpc1020_data *fpc1020)
@@ -287,11 +269,10 @@ err:
 static irqreturn_t fpc1020_irq_handler(int irq, void *_fpc1020)
 {
 	struct fpc1020_data *fpc1020 = _fpc1020;
-	pr_info("fpc1020 IRQ interrupt\n");
-	smp_rmb();
-	__pm_wakeup_event(&fpc1020->fp_wl, 1000);
 	sysfs_notify(&fpc1020->dev->kobj, NULL, dev_attr_irq.attr.name);
-	
+	pr_info("fpc1020 IRQ interrupt\n");
+	input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 1);
+	__pm_wakeup_event(&fpc1020->fp_wl, 1000);
 	return IRQ_HANDLED;
 }
 
@@ -376,6 +357,20 @@ static int fpc1020_alloc_input_dev(struct fpc1020_data *fpc1020)
 	return retval;
 }
 
+static void set_fingerprintd_nice(int nice)
+{
+	struct task_struct *p;
+
+	read_lock(&tasklist_lock);
+	for_each_process(p) {
+		if (!memcmp(p->comm, "fingerprintd", 13)) {
+			set_user_nice(p, nice);
+			break;
+		}
+	}
+	read_unlock(&tasklist_lock);
+}
+
 static int fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
 {
 	int *blank;
@@ -387,9 +382,13 @@ static int fb_notifier_callback(struct notifier_block *self, unsigned long event
 		if (*blank == FB_BLANK_UNBLANK) {
 			pr_err("ScreenOn\n");
 			fpc1020->screen_on = 1;
+			set_fingerprintd_nice(0);
+			pr_info("Nice value set to 0");
 		} else if (*blank == FB_BLANK_POWERDOWN) {
 			pr_err("ScreenOff\n");
 			fpc1020->screen_on = 0;
+			set_fingerprintd_nice(-1);
+			pr_info("Nice value set to -1");
 		}
 	}
 	return 0;
@@ -448,8 +447,8 @@ static int fpc1020_probe(struct platform_device *pdev)
 		goto error_destroy_workqueue;
 	}
 
-	wakeup_source_init(&fpc1020->fp_wl, "fpc_wakelock");
-	wakeup_source_init(&fpc1020->fp_wl_hal, "fp_hal_wl");
+	wakeup_source_init(&fpc1020->fp_wl, "fpc_wakeup");
+	wakeup_source_init(&fpc1020->fp_wl_hal, "fp_hal_wakeup");
 
 	retval = fpc1020_initial_irq(fpc1020);
 	if (retval != 0) {
@@ -481,38 +480,9 @@ error:
 	return retval;
 }
 
-static void set_fingerprintd_nice(int nice)
-{
-	struct task_struct *p;
-
-	read_lock(&tasklist_lock);
-	for_each_process(p) {
-		if (!memcmp(p->comm, "fingerprintd", 13)) {
-			set_user_nice(p, nice);
-			break;
-		}
-	}
-	read_unlock(&tasklist_lock);
-}
-
-static int fpc1020_resume(struct platform_device *pdev)
-{
-	int retval = 0;
-	set_fingerprintd_nice(-1);
-	return retval;
-}
-
-static int fpc1020_suspend(struct platform_device *pdev, pm_message_t state)
-{
-	int retval = 0;
-	set_fingerprintd_nice(0);
-	return retval;
-}
-
 static int fpc1020_remove(struct platform_device *pdev)
 {
-	int retval = 0;
-	return retval;
+	return 0;
 }
 
 static struct of_device_id fpc1020_match[] = {
@@ -525,8 +495,6 @@ static struct of_device_id fpc1020_match[] = {
 static struct platform_driver fpc1020_plat_driver = {
 	.probe = fpc1020_probe,
 	.remove = fpc1020_remove,
-	.suspend = fpc1020_suspend,
-	.resume = fpc1020_resume,
 	.driver = {
 		.name = "fpc1020",
 		.owner = THIS_MODULE,
