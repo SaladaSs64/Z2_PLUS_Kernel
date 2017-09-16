@@ -399,12 +399,6 @@ config CPUFREQ_DT
 
 	  If in doubt, say N.
 
-config FINGERPRINT_BOOST
-	bool "Fingerprint Boost"
-	default y
-	help
-	  Boosts available CPUs to max frequency on fingerprint sensor input.
-
 config MSM_TRACK_FREQ_TARGET_INDEX
 	bool "Track cpufreq frequency index"
 	default n
