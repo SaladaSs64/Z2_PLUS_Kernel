@@ -38,9 +38,6 @@
 #define FPC1020_RESET_HIGH2_US 1250
 #define FPC_TTW_HOLD_TIME 1000
 
-/* Unused key value to avoid interfering with active keys */
-#define KEY_FINGERPRINT 0x2ee
-
 struct fpc1020_data {
 	struct device   *dev;
 	struct pinctrl  *pin;
@@ -214,11 +211,11 @@ static void fpc1020_report_work_func(struct work_struct *work)
 {
 	struct fpc1020_data *fpc1020 = NULL;
 	fpc1020 = container_of(work, struct fpc1020_data, input_report_work);
-	pr_info("Back function of button initiated/n");
+	pr_info("Back function of button initiated\n");
 	input_report_key(fpc1020->input_dev, fpc1020->report_key, 1);
 	udelay(FPC1020_RESET_LOW_US);
 	input_report_key(fpc1020->input_dev, fpc1020->report_key, 0);
-	pr_info("Back function of button completed/n");
+	pr_info("Back function of button completed\n");
 	input_sync(fpc1020->input_dev);
 }
 
@@ -271,7 +268,6 @@ static irqreturn_t fpc1020_irq_handler(int irq, void *_fpc1020)
 	struct fpc1020_data *fpc1020 = _fpc1020;
 	sysfs_notify(&fpc1020->dev->kobj, NULL, dev_attr_irq.attr.name);
 	pr_info("fpc1020 IRQ interrupt\n");
-	input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 1);
 	__pm_wakeup_event(&fpc1020->fp_wl, 1000);
 	return IRQ_HANDLED;
 }
@@ -341,7 +337,6 @@ static int fpc1020_alloc_input_dev(struct fpc1020_data *fpc1020)
 	set_bit(KEY_LEFT, fpc1020->input_dev->keybit);
 	set_bit(KEY_RIGHT, fpc1020->input_dev->keybit);
 	set_bit(KEY_NAVI_LONG, fpc1020->input_dev->keybit);
-	set_bit(KEY_FINGERPRINT, fpc1020->input_dev->keybit);
 	input_set_capability(fpc1020->input_dev, EV_KEY, KEY_NAVI_LEFT);
 	input_set_capability(fpc1020->input_dev, EV_KEY, KEY_NAVI_RIGHT);
 	input_set_capability(fpc1020->input_dev, EV_KEY, KEY_BACK);
@@ -383,12 +378,12 @@ static int fb_notifier_callback(struct notifier_block *self, unsigned long event
 			pr_err("ScreenOn\n");
 			fpc1020->screen_on = 1;
 			set_fingerprintd_nice(0);
-			pr_info("Nice value set to 0/n");
+			pr_info("Nice value set to 0\n");
 		} else if (*blank == FB_BLANK_POWERDOWN) {
 			pr_err("ScreenOff\n");
 			fpc1020->screen_on = 0;
 			set_fingerprintd_nice(-1);
-			pr_info("Nice value set to -1/n");
+			pr_info("Nice value set to -1\n");
 		}
 	}
 	return 0;
