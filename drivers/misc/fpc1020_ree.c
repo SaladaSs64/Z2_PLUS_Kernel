@@ -214,11 +214,11 @@ static void fpc1020_report_work_func(struct work_struct *work)
 {
 	struct fpc1020_data *fpc1020 = NULL;
 	fpc1020 = container_of(work, struct fpc1020_data, input_report_work);
-	pr_info("Back function of button initiated");
+	pr_info("Back function of button initiated/n");
 	input_report_key(fpc1020->input_dev, fpc1020->report_key, 1);
 	udelay(FPC1020_RESET_LOW_US);
 	input_report_key(fpc1020->input_dev, fpc1020->report_key, 0);
-	pr_info("Back function of button completed");
+	pr_info("Back function of button completed/n");
 	input_sync(fpc1020->input_dev);
 }
 
@@ -383,12 +383,12 @@ static int fb_notifier_callback(struct notifier_block *self, unsigned long event
 			pr_err("ScreenOn\n");
 			fpc1020->screen_on = 1;
 			set_fingerprintd_nice(0);
-			pr_info("Nice value set to 0");
+			pr_info("Nice value set to 0/n");
 		} else if (*blank == FB_BLANK_POWERDOWN) {
 			pr_err("ScreenOff\n");
 			fpc1020->screen_on = 0;
 			set_fingerprintd_nice(-1);
-			pr_info("Nice value set to -1");
+			pr_info("Nice value set to -1/n");
 		}
 	}
 	return 0;
