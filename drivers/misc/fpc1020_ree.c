@@ -30,7 +30,7 @@
 #include <linux/of_gpio.h>
 #include <linux/input.h>
 #include <linux/state_notifier.h>
-#include "../input/touchscreen/gt9x_2.4/gt9xx.h"
+#include <linux/gt9x_2.4/gt9xx.h>
 
 #define FPC1020_TOUCH_DEV_NAME  "fpc1020tp"
 

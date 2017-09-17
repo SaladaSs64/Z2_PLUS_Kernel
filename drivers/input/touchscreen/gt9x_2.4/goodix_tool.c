@@ -19,7 +19,7 @@
  */
 
    
-#include "gt9xx.h"
+#include <linux/gt9x_2.4/gt9xx.h>
 
 #define DATA_LENGTH_UINT    512
 #define CMD_HEAD_LENGTH     (sizeof(st_cmd_head) - sizeof(u8*))

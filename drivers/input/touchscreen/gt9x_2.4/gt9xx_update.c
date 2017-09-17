@@ -19,7 +19,7 @@
  */
 
 #include <linux/kthread.h>
-#include "gt9xx.h"
+#include <linux/gt9x_2.4/gt9xx.h>
 
 #include <linux/namei.h>
 #include <linux/mount.h>
