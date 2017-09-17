@@ -30,6 +30,7 @@
 #include <linux/of_gpio.h>
 #include <linux/input.h>
 #include <linux/state_notifier.h>
+#include "../input/touchscreen/gt9x_2.4/gt9xx.h"
 
 #define FPC1020_TOUCH_DEV_NAME  "fpc1020tp"
 
@@ -265,10 +266,11 @@ err:
 
 static irqreturn_t fpc1020_irq_handler(int irq, void *_fpc1020)
 {
-	struct fpc1020_data *fpc1020 = _fpc1020;
-	sysfs_notify(&fpc1020->dev->kobj, NULL, dev_attr_irq.attr.name);
-	pr_info("fpc1020 IRQ interrupt\n");
-	__pm_wakeup_event(&fpc1020->fp_wl, 1000);
+		struct fpc1020_data *fpc1020 = _fpc1020;
+		sysfs_notify(&fpc1020->dev->kobj, NULL, dev_attr_irq.attr.name);
+		pr_info("fpc1020 IRQ interrupt\n");
+	if (DOZE_DISABLED != doze_status)
+		__pm_wakeup_event(&fpc1020->fp_wl, 1000);
 	return IRQ_HANDLED;
 }
 
