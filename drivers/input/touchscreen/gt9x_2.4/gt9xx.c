@@ -103,17 +103,6 @@ static s32 gtp_bak_ref_proc(struct goodix_ts_data *ts, u8 mode);
 #endif
 //********** For GT9XXF End **********//
 
-#if GTP_GESTURE_WAKEUP
-typedef enum
-{
-    DOZE_DISABLED = 0,
-    DOZE_ENABLED = 1,
-    DOZE_WAKEUP = 2,
-}DOZE_T;
-static DOZE_T doze_status = DOZE_DISABLED;
-static s8 gtp_enter_doze(struct goodix_ts_data *ts);
-#endif
-
 #ifdef GTP_CONFIG_OF
 int gtp_parse_dt_cfg(struct device *dev, u8 *cfg, int *cfg_len, u8 sid);
 #endif

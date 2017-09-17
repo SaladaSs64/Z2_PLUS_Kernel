@@ -138,6 +138,17 @@ struct goodix_ts_data {
     
 };
 
+#if GTP_GESTURE_WAKEUP
+typedef enum
+{
+    DOZE_DISABLED = 0,
+    DOZE_ENABLED = 1,
+    DOZE_WAKEUP = 2,
+}DOZE_T;
+static DOZE_T doze_status = DOZE_DISABLED;
+static s8 gtp_enter_doze(struct goodix_ts_data *ts);
+#endif
+
 extern u16 show_len;
 extern u16 total_len;
 extern int gtp_rst_gpio;
